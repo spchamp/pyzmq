@@ -12,6 +12,11 @@ import asyncio
 import logging
 import traceback
 
+try:
+    from asyncio import TaskGroup
+except ImportError:
+    from quattro import TaskGroup
+
 import zmq
 import zmq.asyncio
 from zmq.asyncio import Context
@@ -58,18 +63,16 @@ class HelloWorldMessage:
         # init hello world publisher obj
         self.hello_world = HelloWorld()
 
-    def main(self) -> None:
+    async def amain(self):
         # activate publishers / subscribers
-        asyncio.run(
-            asyncio.wait(
-                [
-                    self.hello_world_pub(),
-                    self.hello_world_sub(),
-                    self.lang_changer_router(),  # less restrictions than REP
-                    self.lang_changer_dealer(),  # less restrictions than REQ
-                ]
-            )
-        )
+        async with TaskGroup() as tg:
+            tg.create_task(self.hello_world_pub())
+            tg.create_task(self.hello_world_sub())
+            tg.create_task(self.lang_changer_router())  # less restrictions than REP
+            tg.create_task(self.lang_changer_dealer())  # less restrictions than REQ
+
+    def main(self) -> None:
+        asyncio.run(self.amain())
 
     # generates message "Hello World" and publish to topic 'world'
     async def hello_world_pub(self) -> None:
